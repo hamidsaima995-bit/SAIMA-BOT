@@ -1,4 +1,5 @@
 // server.js — WhatsApp Cloud API webhook (Meta)
+
 const express = require("express");
 const axios = require("axios");
 
@@ -6,14 +7,14 @@ const app = express();
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
-const VERIFY_TOKEN = process.env.VERIFY_TOKEN;        // apni marzi ka string
-const ACCESS_TOKEN = process.env.WHATSAPP_TOKEN;      // Meta dashboard se
-const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;  // Meta dashboard se
+const VERIFY_TOKEN = process.env.VERIFY_TOKEN;        // any string you choose
+const ACCESS_TOKEN = process.env.WHATSAPP_TOKEN;      // from Meta dashboard
+const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;  // from Meta dashboard
 
 // health check
 app.get("/", (req, res) => res.send("Saima Bot webhook is running ✅"));
 
-// 1) Webhook verification — Meta ye GET request bhejta hai
+// 1) Webhook verification — Meta sends this GET request
 app.get("/webhook", (req, res) => {
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
@@ -28,16 +29,16 @@ app.get("/webhook", (req, res) => {
 
 // 2) Incoming messages
 app.post("/webhook", async (req, res) => {
-  res.sendStatus(200); // Meta ko turant 200 do, warna wo retry karega
+  res.sendStatus(200); // respond to Meta immediately, otherwise it retries
 
   try {
     const entry = req.body.entry?.[0];
     const value = entry?.changes?.[0]?.value;
     const msg = value?.messages?.[0];
 
-    if (!msg) return; // status update tha, message nahi
+    if (!msg) return; // status update, not a message
 
-    const from = msg.from;                    // sender ka number
+    const from = msg.from;                    // sender's number
     const text = msg.text?.body || "";
     const name = value.contacts?.[0]?.profile?.name || "there";
 
@@ -50,28 +51,33 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
-// simple reply logic — baad me DeepSeek/Claude yahan plug karo
+// simple reply logic — plug in DeepSeek/Claude here later
 async function getReply(text, name) {
   const t = text.toLowerCase().trim();
 
-  if (["hi", "hello", "salam", "assalam o alaikum", "aoa"].some(k => t.includes(k))) {
-    return `Assalam o Alaikum ${name}! 👋 Main Saima Bot hoon. Kya madad chahiye?\n\n1️⃣ Services\n2️⃣ Pricing\n3️⃣ Contact`;
+  if (["hi", "hello", "hey", "salam", "assalam o alaikum", "aoa"].some(k => t.includes(k))) {
+    return `Hello ${name}! 👋 I'm Saima Bot. How can I help you today?\n\n1️⃣ Services\n2️⃣ Pricing\n3️⃣ Contact`;
   }
+
   if (t === "1" || t.includes("service")) {
-    return "Hum ye services dete hain:\n• Web development (React/Node)\n• WhatsApp automation\n• AI chatbots\n\nDetails ke liye 2 likhein.";
+    return "Here's what we build:\n• Web development (React/Node)\n• WhatsApp automation\n• AI chatbots\n\nReply 2 for pricing.";
   }
-  if (t === "2" || t.includes("price") || t.includes("rate")) {
-    return "Pricing project ke scope pe depend karti hai. Apna requirement bhejein, main quote de doon ga.";
+
+  if (t === "2" || t.includes("price") || t.includes("rate") || t.includes("cost")) {
+    return "Pricing depends on the scope of the project. Send over your requirements and I'll get you a quote.";
   }
+
   if (t === "3" || t.includes("contact")) {
-    return "Aap yahin message kar sakte hain, ya visit karein: oddexvibe.com";
+    return "You can message here anytime, or visit oddexvibe.com";
   }
-  return `Aapne likha: "${text}"\n\nMain abhi seekh raha hoon. Menu ke liye "hi" likhein.`;
+
+  return `You said: "${text}"\n\nI'm still learning. Type "hi" to see the menu.`;
 }
 
 // 3) Send message back
 async function sendMessage(to, body) {
   const url = `https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`;
+
   await axios.post(
     url,
     {
@@ -87,6 +93,7 @@ async function sendMessage(to, body) {
       },
     }
   );
+
   console.log(`Replied to ${to}`);
 }
 
