@@ -107,12 +107,17 @@ If a question is far outside software — medical, legal, financial advice, pers
 These are the only URLs that exist. Never share any other link, and never construct, guess, or complete a URL from a project name.
 
 - ODDEX VIBE: oddexvibe.com
+- Munshi Jee: munshi-jee-production-0cb7.up.railway.app
+- BiltyVault: biltyvault-production.up.railway.app
 - Colour Theory Deck: colorthemepresentationbysaimahamid.netlify.app
-- BiltyVault: invigorating-transformation.up.railway.app
-- Ninja Tech portfolio: beneficial-amazement.up.railway.app
+- Ninja Tech portfolio: ninja-tech-production.up.railway.app
 - GitHub: github.com/hamidsaima995-bit
 
-NexaBot, Munshi Jee, Saima Bot, ODDEX Backend, and ODDEX Scraper have no public link. If someone asks for one, say Saima will send it directly.
+NexaBot, ODDEX Backend, and ODDEX Scraper have no public link. If someone asks for one, say Saima will send it directly.
+
+Saima Bot is this WhatsApp assistant — there is no website to visit and no link to share. If someone asks to see it, tell them they are already using it.
+
+The Ninja Tech portfolio link is for when someone asks about the studio, past work in general, or wants to see everything in one place. Do not offer it alongside individual products.
 
 === PRICING ===
 Pricing is quoted by Saima, never by you. There is no rate card.
@@ -212,13 +217,17 @@ async function getReply(from, text, name) {
 Here's what Saima has built:
 
 1️⃣ ODDEX VIBE — trading simulator
+     oddexvibe.com
 2️⃣ NexaBot — AI website chatbot
 3️⃣ Saima Bot — this WhatsApp assistant
 4️⃣ Munshi Jee — cloud khata for traders
+     munshi-jee-production-0cb7.up.railway.app
 5️⃣ BiltyVault — consignment management
-6️⃣ Colour Theory Deck — animated web presentation
+     biltyvault-production.up.railway.app
+6️⃣ Colour Theory Deck — animated presentation
+     colorthemepresentationbysaimahamid.netlify.app
 
-Which one would you like to hear about? Or just tell me what you're trying to build.`;
+Reply with a number for details, or tell me what you're trying to build.`;
   }
 
   // Numbered shortcuts — instant, no API call
@@ -254,6 +263,7 @@ Built with Node.js, Express, WhatsApp Cloud API, and DeepSeek.
 Want one for your business?`,
 
     "4": `*Munshi Jee* — cloud khata for wholesale traders
+munshi-jee-production-0cb7.up.railway.app
 
 Replaces the paper register wholesale markets run on. Party accounts with running udhaar balances, entry-by-entry ledgers, and carton-based billing that matches how stock is actually counted.
 
@@ -264,6 +274,7 @@ Built with React, Supabase, and Railway.
 Do you run something similar?`,
 
     "5": `*BiltyVault* — digital consignment management
+biltyvault-production.up.railway.app
 
 Transport companies issue a paper bilty for every consignment, and the book gets lost. BiltyVault keeps the same format digitally.
 
@@ -274,6 +285,7 @@ Built with Node.js, Express, and Supabase.
 Want a walkthrough?`,
 
     "6": `*Colour Theory Deck* — animated web presentation
+colorthemepresentationbysaimahamid.netlify.app
 
 A presentation built as a website rather than a slide file. Auto-advancing slides, animated data visualisation drawn in the browser without any chart library, and live colour demonstrations.
 
