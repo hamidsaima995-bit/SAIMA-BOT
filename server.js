@@ -12,6 +12,24 @@ const ACCESS_TOKEN = process.env.WHATSAPP_TOKEN;        // from Meta dashboard
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;    // from Meta dashboard
 const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY;      // from platform.deepseek.com
 
+// --- Lead capture: bot keeps replying as normal, but collects contact
+//     details so Saima can follow up herself when she's free. ---
+const OWNER_WHATSAPP = process.env.OWNER_WHATSAPP;      // Saima's number, for the /leads list + alerts
+const RESEND_KEY = process.env.RESEND_API_KEY;         // resend.com (free) — optional email alerts
+const OWNER_EMAIL = process.env.OWNER_EMAIL;           // where lead emails go
+
+// Everyone who has messaged, with whatever contact info we've gathered.
+// key = WhatsApp number, value = { name, number, contact, messages, time, alerted }
+const leads = new Map();
+
+// Pull a phone number or email out of a message, if the person shared one.
+function extractContact(text) {
+  const email = text.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+  const phone = text.match(/(\+?\d[\d\s-]{7,}\d)/);
+  return email?.[0] || phone?.[0] || null;
+}
+
+
 // ---------------------------------------------------------------
 // Conversation memory — last few turns per sender, kept in memory.
 // Resets on redeploy, which is fine for a demo. Swap for Redis or
@@ -130,7 +148,7 @@ Wrong: "For $2000 we can build a solid HR system with all the modules you mentio
 The same applies to timelines. Never promise a delivery date or say how long something will take.
 
 === CONTACT ===
-This WhatsApp number, or oddexvibe.com
+Saima can be reached directly on WhatsApp at 0321-0014466 (this same number), or by email at hamidsaima995@gmail.com. Share these when someone wants to talk to Saima directly, discuss a project seriously, or asks how to get in touch. You can also point them to the portfolio at ninja-tech-production.up.railway.app.
 
 === RULES ===
 1. Keep replies under 70 words. This is WhatsApp, not email.
@@ -196,7 +214,26 @@ app.post("/webhook", async (req, res) => {
     const text = msg.text.body;
     console.log(`Message from ${name} (${from}): ${text}`);
 
-    const reply = await getReply(from, text, name);
+    // --- Owner commands: review the captured leads from Saima's own number ---
+    if (OWNER_WHATSAPP && from === OWNER_WHATSAPP) {
+      const cmd = text.toLowerCase().trim();
+      if (cmd === "/leads") { await sendMessage(from, leadsSummary()); return; }
+      if (cmd === "/clear") { leads.clear(); await sendMessage(from, "🧹 Lead list cleared."); return; }
+    }
+
+    // --- Record this person + any contact detail they shared ---
+    recordLead(from, name, text);
+
+    // --- Reply exactly as before ---
+    let reply = await getReply(from, text, name);
+
+    // If we still don't have a contact detail from them, gently ask once.
+    const lead = leads.get(from);
+    if (lead && !lead.contact && !lead.asked) {
+      lead.asked = true;
+      reply += "\n\nBy the way — so Saima can reach you directly, what's the best number or email for you?";
+    }
+
     await sendMessage(from, reply);
   } catch (err) {
     console.error("Webhook error:", err.response?.data || err.message);
@@ -342,6 +379,59 @@ async function askAI(from, text, name) {
   } catch (err) {
     console.error("AI error:", err.response?.data || err.message);
     return "Sorry — I couldn't process that just now. Type \"menu\" for the shortcuts, or try again in a moment.";
+  }
+}
+
+// ---------------------------------------------------------------
+// Lead capture — remember who messaged and how to reach them
+// ---------------------------------------------------------------
+function recordLead(from, name, text) {
+  const contact = extractContact(text);
+  const now = new Date().toLocaleString("en-GB", { timeZone: "Asia/Karachi" });
+
+  let lead = leads.get(from);
+  if (!lead) {
+    lead = { name, number: from, contact: contact || null, messages: text, time: now, alerted: false, asked: false };
+    leads.set(from, lead);
+  } else {
+    lead.messages += " | " + text;
+    lead.time = now;
+    if (!lead.contact && contact) lead.contact = contact;  // fill in once they share it
+  }
+
+  // Alert Saima the first time someone shares a contact detail (the useful moment).
+  if (lead.contact && !lead.alerted) {
+    lead.alerted = true;
+    alertOwner(lead);
+  }
+}
+
+function leadsSummary() {
+  if (!leads.size) return "No leads captured yet.";
+  let i = 1, out = "📋 People who messaged Ninja Tech:\n\n";
+  for (const l of leads.values()) {
+    out += `${i++}. ${l.name} — ${l.contact || l.number}\n   "${l.messages}"\n   ${l.time}\n\n`;
+  }
+  return out.trim();
+}
+
+async function alertOwner(lead) {
+  const summary = `🔔 New contact from WhatsApp\n\nName: ${lead.name}\nReach at: ${lead.contact || lead.number}\nWhatsApp: ${lead.number}\nMessage: ${lead.messages}\nTime: ${lead.time}`;
+
+  if (OWNER_WHATSAPP && lead.number !== OWNER_WHATSAPP) {
+    try { await sendMessage(OWNER_WHATSAPP, summary); }
+    catch (e) { console.error("Owner WhatsApp alert failed:", e.response?.data || e.message); }
+  }
+  if (RESEND_KEY && OWNER_EMAIL) {
+    try {
+      await axios.post(
+        "https://api.resend.com/emails",
+        { from: "Ninja Tech Bot <onboarding@resend.dev>", to: [OWNER_EMAIL],
+          subject: `New WhatsApp lead: ${lead.name}`, text: summary },
+        { headers: { Authorization: `Bearer ${RESEND_KEY}`, "Content-Type": "application/json" }, timeout: 15_000 }
+      );
+      console.log("Lead email sent to", OWNER_EMAIL);
+    } catch (e) { console.error("Email alert failed:", e.response?.data || e.message); }
   }
 }
 
