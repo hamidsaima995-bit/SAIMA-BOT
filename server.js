@@ -406,7 +406,7 @@ function recordLead(from, name, text) {
 
   let lead = leads.get(from);
   if (!lead) {
-    lead = { name, number: from, contact: contact || null, messages: text, time: now, alerted: false, asked: false };
+    lead = { name, number: from, contact: contact || null, messages: text, time: now, day: todayKey(), alerted: false, asked: false };
     leads.set(from, lead);
   } else {
     lead.messages += " | " + text;
@@ -475,5 +475,62 @@ async function sendMessage(to, body) {
 
   console.log(`Replied to ${to}`);
 }
+
+// ---------------------------------------------------------------
+// Daily summary — once a day, tell Saima how many clients came in
+// and which ones look worth following up. Sent on WhatsApp + email.
+// ---------------------------------------------------------------
+function todayKey() {
+  return new Date().toLocaleDateString("en-GB", { timeZone: "Asia/Karachi" });
+}
+
+function buildDailySummary() {
+  const today = todayKey();
+  const todays = [...leads.values()].filter((l) => l.day === today);
+  if (!todays.length) return null;
+
+  const withContact = todays.filter((l) => l.contact);          // shared a number/email = more serious
+  const lines = todays.map((l, i) => {
+    const tag = l.contact ? "⭐ serious" : "· just asking";
+    return `${i + 1}. ${l.name} — ${l.contact || l.number} (${tag})\n   "${l.messages}"`;
+  });
+
+  return `📊 Ninja Tech — today's summary (${today})\n\n${todays.length} people messaged, ${withContact.length} left contact details.\n\n${lines.join("\n\n")}\n\nReply /leads any time for the full list.`;
+}
+
+async function sendDailySummary() {
+  const summary = buildDailySummary();
+  if (!summary) return; // nothing today, stay quiet
+
+  if (OWNER_WHATSAPP) {
+    try { await sendMessage(OWNER_WHATSAPP, summary); }
+    catch (e) { console.error("Daily WhatsApp summary failed:", e.response?.data || e.message); }
+  }
+  if (RESEND_KEY && OWNER_EMAIL) {
+    try {
+      await axios.post(
+        "https://api.resend.com/emails",
+        { from: "Ninja Tech Bot <onboarding@resend.dev>", to: [OWNER_EMAIL],
+          subject: `Ninja Tech — ${[...leads.values()].filter(l => l.day === todayKey()).length} client(s) today`,
+          text: summary },
+        { headers: { Authorization: `Bearer ${RESEND_KEY}`, "Content-Type": "application/json" }, timeout: 15_000 }
+      );
+    } catch (e) { console.error("Daily email summary failed:", e.response?.data || e.message); }
+  }
+  console.log("Daily summary sent.");
+}
+
+// Check every 15 minutes; fire the summary once when local time first reaches SUMMARY_HOUR.
+const SUMMARY_HOUR = Number(process.env.SUMMARY_HOUR || 21); // 9pm Pakistan time by default
+let lastSummaryDay = null;
+setInterval(() => {
+  const now = new Date();
+  const hour = Number(now.toLocaleString("en-GB", { timeZone: "Asia/Karachi", hour: "2-digit", hour12: false }));
+  const day = todayKey();
+  if (hour >= SUMMARY_HOUR && lastSummaryDay !== day) {
+    lastSummaryDay = day;
+    sendDailySummary();
+  }
+}, 15 * 60_000);
 
 app.listen(PORT, () => console.log(`Server on port ${PORT}`));
